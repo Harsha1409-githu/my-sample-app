@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+
+    environment {
+        DEPLOY_USER = 'ec2-user'               // Default user for Amazon Linux EC2 instances
+        DEPLOY_HOST = '44.200.214.49'          // Replace this with your actual EC2 public IP address
+        DEPLOY_PATH = '/var/www/html'           // Destination path on your EC2 instance
+        SSH_KEY_ID = 'deploy-key'               // Jenkins credential ID for your private SSH key
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                echo 'Cloning code from GitHub...'
+                checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Running build (example step)...'
+                sh 'ls -la'
+            }
+        }
+
+        stage('Deploy to Test Server') {
+            steps {
+                echo "Deploying to test server ${DEPLOY_HOST}..."
+                sshagent(credentials: ["${SSH_KEY_ID}"]) {
+                    sh """
+                    scp -o StrictHostKeyChecking=no index.html ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/index.html
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} 'sudo systemctl restart nginx'
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '🚀 Deployment completed successfully!'
+        }
+        failure {
+            echo '❌ Deployment failed.'
+        }
+    }
+}
